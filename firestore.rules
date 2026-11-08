@@ -1,0 +1,110 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isVoterOf(electionId) {
+      return signedIn()
+        && request.auth.token.role == 'voter'
+        && request.auth.token.electionId == electionId;
+    }
+
+    function isPollWorkerOf(electionId) {
+      return signedIn()
+        && request.auth.token.role == 'pollworker'
+        && request.auth.token.electionId == electionId;
+    }
+
+    function electionStatus(electionId) {
+      return get(/databases/$(database)/documents/elections/$(electionId)).data.status;
+    }
+
+    // Credenciamento offline habilitado no evento: mesário lê a lista e grava
+    // presença direto (fila/cache do SDK toleram internet intermitente).
+    function offlineEnabled(electionId) {
+      return get(/databases/$(database)/documents/elections/$(electionId))
+        .data.offlinePresence == true;
+    }
+
+    // Mesário só pode alterar os campos de presença de um eleitor.
+    function onlyPresenceFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['present', 'presentAt', 'presentBy']);
+    }
+
+    // Admins: cada admin lê apenas o próprio registro (bootstrap via script).
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /elections/{electionId} {
+      // Eleitor e admin leem; público lê quando aberta (tela de login)
+      // ou encerrada (tela de resultado).
+      allow get: if isAdmin()
+        || isVoterOf(electionId)
+        || resource.data.status in ['open', 'closed'];
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.status == 'draft'
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if false; // exclusão recursiva apenas via function
+
+      match /candidates/{candidateId} {
+        allow read: if isAdmin()
+          || isVoterOf(electionId)
+          || electionStatus(electionId) == 'closed';
+        // Estrutura da cédula só muda em rascunho.
+        allow write: if isAdmin() && electionStatus(electionId) == 'draft';
+      }
+
+      match /voters/{voterId} {
+        allow get: if isAdmin()
+          || (isVoterOf(electionId) && request.auth.token.voterId == voterId)
+          || (isPollWorkerOf(electionId) && offlineEnabled(electionId));
+        // Mesário lê a lista apenas em eventos com credenciamento offline.
+        allow list: if isAdmin()
+          || (isPollWorkerOf(electionId) && offlineEnabled(electionId));
+        // Mesário grava apenas os campos de presença (offline); criação/exclusão
+        // e demais campos seguem exclusivos das Cloud Functions.
+        allow update: if isPollWorkerOf(electionId)
+          && offlineEnabled(electionId)
+          && onlyPresenceFields();
+        allow create, delete: if false;
+      }
+
+      match /meta/stats {
+        allow get: if isAdmin()
+          || isPollWorkerOf(electionId)
+          || electionStatus(electionId) == 'closed';
+        allow list, write: if false; // somente Cloud Functions
+      }
+
+      // Cédulas são secretas: nenhum cliente lê ou escreve.
+      match /ballots/{ballotId} {
+        allow read, write: if false;
+      }
+
+      // Mesários: admin gerencia (via functions); credenciais nunca expostas.
+      match /pollworkers/{pollWorkerId} {
+        allow read: if isAdmin();
+        allow write: if false; // somente Cloud Functions
+      }
+    }
+
+    // Tokens de acesso por link: somente Cloud Functions.
+    match /accessTokens/{tokenHash} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,16 @@
+node_modules
+dist
+*.log
+.DS_Store
+.env
+.env.local
+.env.production
+.env.*.local
+.vercel
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/lib
+functions/node_modules
+serviceAccountKey.json
