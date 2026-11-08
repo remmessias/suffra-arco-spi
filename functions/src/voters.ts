@@ -24,6 +24,7 @@ interface ImportRow {
   login?: string;
   cpf?: string;
   matricula?: string;
+  password?: string;
 }
 
 interface AccessRow {
@@ -74,6 +75,7 @@ export const importVoters = onCall({ timeoutSeconds: 300 }, async (request) => {
       login: typeof row?.login === 'string' ? normalizeLogin(row.login) : undefined,
       cpf: cpfDigits || undefined,
       matricula: str(row?.matricula),
+      password: str(row?.password),
     };
   });
 
@@ -160,8 +162,9 @@ export const importVoters = onCall({ timeoutSeconds: 300 }, async (request) => {
         });
         accessRow.token = token;
         // Camada extra opcional: senha individual por eleitor (link + senha).
+        // Usa a senha informada no CSV (coluna "senha") ou gera uma.
         if (electionData.linkRequiresPassword === true) {
-          const password = generatePassword();
+          const password = row.password || generatePassword();
           voter.credentialHash = hashPassword(password);
           accessRow.password = password;
         }

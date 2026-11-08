@@ -12,6 +12,7 @@ interface ImportRow {
   login?: string;
   cpf?: string;
   matricula?: string;
+  password?: string;
 }
 
 function call<Req, Res>(name: string) {

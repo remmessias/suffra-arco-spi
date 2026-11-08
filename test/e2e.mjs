@@ -289,6 +289,31 @@ await mustCall('confirmPresence', {}, lpToken);
 await mustCall('castVote', { candidateId: candLP.id }, lpToken);
 log('resgate do link com senha correta permite votar');
 
+// Import com senha informada (coluna "senha") vs gerada automaticamente.
+const lpImport2 = await mustCall(
+  'importVoters',
+  {
+    electionId: linkPwElection.id,
+    voters: [
+      { name: 'Com Senha', password: 'MinhaSenha123' },
+      { name: 'Sem Senha' },
+    ],
+  },
+  adminToken,
+);
+const comSenha = lpImport2.voters.find((v) => v.name === 'Com Senha');
+const semSenha = lpImport2.voters.find((v) => v.name === 'Sem Senha');
+assert.equal(comSenha.password, 'MinhaSenha123');
+assert.ok(semSenha.password && semSenha.password !== 'MinhaSenha123');
+log('importVoters usa a senha informada e gera para quem não tem');
+
+const okProvided = await mustCall('redeemAccessLink', {
+  token: comSenha.token,
+  password: 'MinhaSenha123',
+});
+assert.equal(okProvided.electionId, linkPwElection.id);
+log('senha informada no import funciona no resgate do link');
+
 // 8. Funções de admin exigem admin
 const notAdmin = await callFn(
   'importVoters',

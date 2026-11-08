@@ -178,6 +178,14 @@ export default function VotersTab({ election }: { election: Election }) {
               </code>{' '}
               (CPF e matrícula opcionais). Também aceita arquivo CSV.
             </>
+          ) : election.authMode === 'link' && election.linkRequiresPassword ? (
+            <>
+              Cole um eleitor por linha (só o nome). Para definir a senha de cada
+              um, inclua um cabeçalho com as colunas, ex.:{' '}
+              <code className="rounded bg-slate-100 px-1 text-xs">Nome;Senha</code>
+              . Quem ficar sem senha preenchida recebe uma gerada
+              automaticamente. Também aceita arquivo CSV.
+            </>
           ) : (
             <>
               Cole um eleitor por linha — apenas o nome, ou{' '}
@@ -192,7 +200,9 @@ export default function VotersTab({ election }: { election: Election }) {
           placeholder={
             isAttendance
               ? 'Maria da Silva;123.456.789-01;2025001\nJoão Pereira;;2025002'
-              : 'Maria da Silva\nJoão Pereira;joao.pereira'
+              : election.authMode === 'link' && election.linkRequiresPassword
+                ? 'Nome;Senha\nMaria da Silva;brasil2026\nJoão Pereira'
+                : 'Maria da Silva\nJoão Pereira;joao.pereira'
           }
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
