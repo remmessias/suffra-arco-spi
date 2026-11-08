@@ -26,7 +26,7 @@ export const api = {
   >('voterLogin'),
 
   redeemAccessLink: call<
-    { token: string },
+    { token: string; password?: string },
     { token: string; electionId: string }
   >('redeemAccessLink'),
 

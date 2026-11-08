@@ -243,6 +243,52 @@ const badRedeem = await callFn('redeemAccessLink', { token: 'token-invalido' });
 assert.equal(badRedeem.ok, false);
 log('link inválido rejeitado');
 
+// 7.5. Link com senha individual por eleitor
+const linkPwElection = await db.collection('elections').add({
+  name: 'E2E Link+Senha',
+  description: '',
+  status: 'open',
+  kind: 'election',
+  authMode: 'link',
+  allowBlank: false,
+  linkRequiresPassword: true,
+  createdAt: FieldValue.serverTimestamp(),
+  createdBy: adminUid,
+});
+const candLP = await linkPwElection
+  .collection('candidates')
+  .add({ name: 'Chapa X', number: '1', order: 0 });
+const lpImport = await mustCall(
+  'importVoters',
+  { electionId: linkPwElection.id, voters: [{ name: 'Elena Prado' }] },
+  adminToken,
+);
+const lpVoter = lpImport.voters[0];
+assert.ok(lpVoter.token && lpVoter.password);
+log('importVoters (link+senha) gera token e senha');
+
+const noPw = await callFn('redeemAccessLink', { token: lpVoter.token });
+assert.equal(noPw.ok, false);
+assert.equal(noPw.json.error?.details?.reason, 'password-required');
+log('resgate do link sem senha é bloqueado (password-required)');
+
+const wrongPw = await callFn('redeemAccessLink', {
+  token: lpVoter.token,
+  password: 'senha-errada',
+});
+assert.equal(wrongPw.ok, false);
+log('resgate do link com senha errada é bloqueado');
+
+const okPw = await mustCall('redeemAccessLink', {
+  token: lpVoter.token,
+  password: lpVoter.password,
+});
+assert.equal(okPw.electionId, linkPwElection.id);
+const lpToken = await voterSession(okPw.token);
+await mustCall('confirmPresence', {}, lpToken);
+await mustCall('castVote', { candidateId: candLP.id }, lpToken);
+log('resgate do link com senha correta permite votar');
+
 // 8. Funções de admin exigem admin
 const notAdmin = await callFn(
   'importVoters',

@@ -159,6 +159,12 @@ export const importVoters = onCall({ timeoutSeconds: 300 }, async (request) => {
           voterId: voterRef.id,
         });
         accessRow.token = token;
+        // Camada extra opcional: senha individual por eleitor (link + senha).
+        if (electionData.linkRequiresPassword === true) {
+          const password = generatePassword();
+          voter.credentialHash = hashPassword(password);
+          accessRow.password = password;
+        }
       }
 
       batch.set(voterRef, voter);
@@ -210,7 +216,14 @@ export const resetVoterAccess = onCall(async (request) => {
       batch.delete(db.doc(`accessTokens/${voter.tokenHash}`));
     }
     batch.set(db.doc(`accessTokens/${tokenHash}`), { electionId, voterId });
-    batch.update(voterRef, { tokenHash });
+    // Mantém a camada de senha: regenera também a senha individual.
+    if (electionSnap.data()!.linkRequiresPassword === true) {
+      const password = generatePassword();
+      batch.update(voterRef, { tokenHash, credentialHash: hashPassword(password) });
+      result.password = password;
+    } else {
+      batch.update(voterRef, { tokenHash });
+    }
     await batch.commit();
     result.token = token;
   }

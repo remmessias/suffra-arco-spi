@@ -38,6 +38,16 @@ function accessCsv(election: Election, rows: VoterAccessRow[]) {
         `${window.location.origin}/votar/${election.id}`,
       ]),
     );
+  } else if (election.linkRequiresPassword) {
+    downloadCsv(
+      `links-${election.id}.csv`,
+      ['Nome', 'Link de votação', 'Senha'],
+      rows.map((r) => [
+        r.name,
+        r.token ? voteLink(r.token) : '',
+        r.password ?? '',
+      ]),
+    );
   } else {
     downloadCsv(
       `links-${election.id}.csv`,
@@ -242,7 +252,12 @@ export default function VotersTab({ election }: { election: Election }) {
           }
         >
           <p className="mb-3 rounded-lg bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-            Atenção: por segurança, {election.authMode === 'credentials' ? 'as senhas' : 'os links'}{' '}
+            Atenção: por segurança,{' '}
+            {election.authMode === 'credentials'
+              ? 'as senhas'
+              : election.linkRequiresPassword
+                ? 'os links e as senhas'
+                : 'os links'}{' '}
             não ficam salvos no sistema. Baixe o CSV agora — depois só será
             possível gerar novos acessos.
           </p>
@@ -257,7 +272,12 @@ export default function VotersTab({ election }: { election: Election }) {
                       <th className="px-3 py-2">Senha</th>
                     </>
                   ) : (
-                    <th className="px-3 py-2">Link</th>
+                    <>
+                      <th className="px-3 py-2">Link</th>
+                      {election.linkRequiresPassword && (
+                        <th className="px-3 py-2">Senha</th>
+                      )}
+                    </>
                   )}
                 </tr>
               </thead>
@@ -271,9 +291,16 @@ export default function VotersTab({ election }: { election: Election }) {
                         <td className="px-3 py-2 font-mono text-xs">{r.password}</td>
                       </>
                     ) : (
-                      <td className="px-3 py-2 font-mono text-xs break-all">
-                        {r.token ? voteLink(r.token) : ''}
-                      </td>
+                      <>
+                        <td className="px-3 py-2 font-mono text-xs break-all">
+                          {r.token ? voteLink(r.token) : ''}
+                        </td>
+                        {election.linkRequiresPassword && (
+                          <td className="px-3 py-2 font-mono text-xs">
+                            {r.password}
+                          </td>
+                        )}
+                      </>
                     )}
                   </tr>
                 ))}

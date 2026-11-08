@@ -14,6 +14,7 @@ export default function ElectionNew() {
   const [authMode, setAuthMode] = useState<AuthMode>('credentials');
   const [allowBlank, setAllowBlank] = useState(false);
   const [offlinePresence, setOfflinePresence] = useState(false);
+  const [linkRequiresPassword, setLinkRequiresPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const isAttendance = kind === 'attendance';
@@ -32,6 +33,8 @@ export default function ElectionNew() {
         authMode: isAttendance ? 'credentials' : authMode,
         allowBlank: isAttendance ? false : allowBlank,
         offlinePresence: isAttendance ? offlinePresence : false,
+        linkRequiresPassword:
+          !isAttendance && authMode === 'link' ? linkRequiresPassword : false,
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser!.uid,
       });
@@ -173,6 +176,26 @@ export default function ElectionNew() {
               importados.
             </p>
           </fieldset>
+          )}
+          {!isAttendance && authMode === 'link' && (
+            <label className="flex items-start gap-2 rounded-lg border border-slate-200 p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={linkRequiresPassword}
+                onChange={(e) => setLinkRequiresPassword(e.target.checked)}
+              />
+              <span>
+                <span className="block font-medium">
+                  Exigir senha individual por eleitor
+                </span>
+                <span className="block text-slate-500">
+                  Além do link único, cada eleitor recebe uma senha pessoal
+                  (gerada na importação) e precisa digitá-la para votar. Protege
+                  contra links encaminhados ou vazados.
+                </span>
+              </span>
+            </label>
           )}
           {!isAttendance && (
             <label className="flex items-center gap-2 text-sm">

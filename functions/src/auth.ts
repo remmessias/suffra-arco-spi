@@ -73,6 +73,8 @@ export const voterLogin = onCall(async (request) => {
  */
 export const redeemAccessLink = onCall(async (request) => {
   const token = requireString(request.data?.token, 'token');
+  const password =
+    typeof request.data?.password === 'string' ? request.data.password : '';
 
   const tokenDoc = await db.doc(`accessTokens/${sha256(token)}`).get();
   if (!tokenDoc.exists) {
@@ -83,7 +85,31 @@ export const redeemAccessLink = onCall(async (request) => {
     electionId: string;
     voterId: string;
   };
-  await getActiveElection(electionId);
+  const election = await getActiveElection(electionId);
+
+  // Camada extra: quando a eleição exige senha individual, o link não basta.
+  if (election.linkRequiresPassword === true) {
+    const voterSnap = await db
+      .doc(`elections/${electionId}/voters/${voterId}`)
+      .get();
+    const credentialHash = voterSnap.data()?.credentialHash as
+      | string
+      | undefined;
+    if (!credentialHash) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Acesso sem senha configurada. Peça um novo acesso ao organizador.',
+      );
+    }
+    if (!password) {
+      throw new HttpsError('failed-precondition', 'Senha necessária.', {
+        reason: 'password-required',
+      });
+    }
+    if (!verifyPassword(password, credentialHash)) {
+      throw new HttpsError('permission-denied', 'Senha incorreta.');
+    }
+  }
 
   return { token: await mintVoterToken(electionId, voterId), electionId };
 });

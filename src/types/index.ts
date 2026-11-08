@@ -20,6 +20,8 @@ export interface Election {
   offlinePresence?: boolean;
   /** Pausa manual: enquanto aberta, bloqueia voto/credenciamento até retomar. */
   paused?: boolean;
+  /** Modo link: exige senha individual por eleitor além do link único. */
+  linkRequiresPassword?: boolean;
   createdAt: Timestamp;
   createdBy: string;
 }
